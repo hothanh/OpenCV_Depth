@@ -1,0 +1,1 @@
+sudo ./stereo_depth --max-disparity=32 --blocksize=19 -i=./intrinsics.yml -e=extrinsics.yml --imagemode=folder --loc=/mnt/tmpstore/ >/dev/null
