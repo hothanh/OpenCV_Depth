@@ -22,7 +22,6 @@ using namespace cv;
 using namespace cv::ximgproc;
 using namespace std;
 
-cv::Mat GlbDepthMap, GlbDisparity;
 
 static void print_help()
 {
@@ -266,10 +265,12 @@ int main(int argc, char** argv)
 	// for processing all images at once, i am here using static values. 
 	// if you want to process other stereo images, you have to match file names and index etc. 
 
-	struct timeval t1, t2, t3;
+	struct timeval t1, t2, t3, t4, t5;
 	double t_process[5000];
 	int frame_count=0;
-	for(int i = 1; i < 5000; i++)
+	int i = 0;
+	//for(int i = 1; i < 5000; i++)
+	for(;;)
 	{
 		if (img_mode == 1) 
 		{
@@ -298,13 +299,11 @@ int main(int argc, char** argv)
 
 		gettimeofday(&t1, NULL);
 
-		Ptr<StereoSGBM> sgbm_left = StereoSGBM::create(0, 16, 3);
+		Ptr<StereoSGBM> sgbm_left = cv::StereoSGBM::create(0, 160, 13, 4056, 16224, 1, 0, 15, 400, 200, 1);
 	
 		sgbm_left->setPreFilterCap(PreFilterCap);
 		int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
 		sgbm_left->setBlockSize(sgbmWinSize);
-		//sgbm_left->setP1(8 * cn*sgbmWinSize*sgbmWinSize);
-		//sgbm_left->setP2(32 * cn*sgbmWinSize*sgbmWinSize);
 		sgbm_left->setP1(P1);
 		sgbm_left->setP2(P2);
 		sgbm_left->setMinDisparity(MininumDisparity);
@@ -322,43 +321,20 @@ int main(int argc, char** argv)
 		//img1 = LScaleImage;
 		//img2 = RScaleImage;
 
-		if (alg == STEREO_SGBM)
-			sgbm_left->setMode(StereoSGBM::MODE_SGBM);
-		else if (alg == STEREO_3WAY)
-			sgbm_left->setMode(StereoSGBM::MODE_SGBM_3WAY);
-
-		Ptr<StereoMatcher> right_matcher = createRightMatcher(sgbm_left);
+		//if (alg == STEREO_SGBM)
+		//	sgbm_left->setMode(StereoSGBM::MODE_SGBM);
+		//else if (alg == STEREO_3WAY)
+		//	sgbm_left->setMode(StereoSGBM::MODE_SGBM_3WAY);
 
 		Mat disp, right_disp, disp8;
-		Mat filtered_disp;
-
-		//int64 t = getTickCount();
-
 		sgbm_left->compute(img1, img2, disp);
-		right_matcher->compute(img2, img1, right_disp);
+		gettimeofday(&t2, NULL);
+		t_process[frame_count] = (t2.tv_sec - t1.tv_sec) * 1000.0;
+		t_process[frame_count] += (t2.tv_usec - t1.tv_usec) / 1000.0;
+		cout << "T_disparity: " << t_process[frame_count]  << "ms"   << endl;
 
-		//t = getTickCount() - t;
-		//printf("SGMB processing time: %fms\n\n", t * 1000 / getTickFrequency());
-
-
-		Ptr<DisparityWLSFilter> wls_filter;
-		wls_filter = createDisparityWLSFilter(sgbm_left);
-	
-		//! [filtering]
-		double lambda = 8000.0;
-		double sigma = 1.5;
-
-		wls_filter->setLambda(lambda);
-		wls_filter->setSigmaColor(sigma);
-		wls_filter->filter(disp, img1, filtered_disp, right_disp);
-
-		//Deepak
-		//Visualize disparity map
-		Mat filtered_disp_vis;
-		getDisparityVis(filtered_disp, filtered_disp_vis, 10.0);
-	
 		Mat imgDisparity32F;
-		filtered_disp.convertTo(imgDisparity32F, CV_32F, 1. / 16);
+		disp.convertTo(imgDisparity32F, CV_32F, 1. / 16);
 
         	cv::Mat depth_map(imgDisparity32F.rows, imgDisparity32F.cols, CV_32F);
         	depth_map.setTo(0);
@@ -371,9 +347,12 @@ int main(int argc, char** argv)
 
         	float min_ = 1.0e8;
         	float max_ = -1.0e8;
+		gettimeofday(&t3, NULL);
+		t_process[frame_count] = (t3.tv_sec - t2.tv_sec) * 1000.0;
+		t_process[frame_count] += (t3.tv_usec - t2.tv_usec) / 1000.0;
+		cout << "T_transform: " << t_process[frame_count]  << "ms"   << endl;
 
         	// calculate depth from each disparity value 
-		//t = getTickCount();
         	for (int y = 0; y < imgDisparity32F.rows; y++)
         	{
         	    for (int x = 0; x < imgDisparity32F.cols; x++)
@@ -388,10 +367,10 @@ int main(int argc, char** argv)
         	    }
         	}
 
-		gettimeofday(&t2, NULL);
-		t_process[frame_count] = (t2.tv_sec - t1.tv_sec) * 1000.0;
-		t_process[frame_count] += (t2.tv_usec - t1.tv_usec) / 1000.0;
-		cout << "T_process: " << t_process[frame_count]  << "ms"   << endl;
+		gettimeofday(&t4, NULL);
+		t_process[frame_count] = (t4.tv_sec - t3.tv_sec) * 1000.0;
+		t_process[frame_count] += (t4.tv_usec - t3.tv_usec) / 1000.0;
+		cout << "T_depth: " << t_process[frame_count]  << "ms"   << endl;
 
 		if (img_mode == 0) {
 			serializeMatbin(depth_map, depth_filename);
@@ -403,6 +382,10 @@ int main(int argc, char** argv)
 			depth_filename = str1.str();
 			serializeMatbin(depth_map, depth_filename);
 		}
+		gettimeofday(&t5, NULL);
+		t_process[frame_count] = (t5.tv_sec - t4.tv_sec) * 1000.0;
+		t_process[frame_count] += (t5.tv_usec - t4.tv_usec) / 1000.0;
+		cout << "T_matbin: " << t_process[frame_count]  << "ms"   << endl;
 
         	// << ****** just checking if depth map saved correctly and loaded as it is ****** >>
         	//Mat imgDepth32f = deserializeMatbin("depth.matbin");
@@ -415,18 +398,16 @@ int main(int argc, char** argv)
         	strcolor << loc << "../result/depth_color_map/depth_color_map" << i << ".png";
         	imwrite(strcolor.str(), depth_color_map);
 		if (img_mode == 0) {
-			imwrite(disparity_filename, filtered_disp_vis);
-			break;
+			imwrite(disparity_filename, disp);
+			//break;
 		}
 		else {
 			stringstream str1;
 			str1 << loc << "../result/dispa_image/dispa" << i << ".png";
 			disparity_filename = str1.str();
-			imwrite(disparity_filename, filtered_disp_vis);			
+			imwrite(disparity_filename, disp);			
 		}
 		
-		GlbDepthMap = depth_map.clone();
-		GlbDisparity= filtered_disp_vis.clone();
 		frame_count++;
 	}
 
