@@ -22,7 +22,6 @@ using namespace cv;
 using namespace cv::ximgproc;
 using namespace std;
 
-cv::Mat GlbDepthMap, GlbDisparity;
 
 static void print_help()
 {
@@ -31,7 +30,8 @@ static void print_help()
 		"[--max-disparity=<max_disparity>] [-i=<intrinsic_filename>] [-e=<extrinsic_filename>]\n"
 		"[-o=<disparity_image>] [-od=<depth_data(.matbin)>]\n"
 		"[--pre-filter-cap=<prefiltercap>] [--min-disparity=<mininum_disparity] [--P1=<P1>] [--P2=<P2>] [--uniqe-ratio=<unique_ratio]\n"
-		"[--speckle-range=<speckle_range>] [--speckle-win-size=<speckle_window_size] [--disp-12max-diff=<disparity_12max_diff>]\n");
+		"[--speckle-range=<speckle_range>] [--speckle-win-size=<speckle_window_size] [--disp-12max-diff=<disparity_12max_diff>]\n"
+		"[--timing=yes|no] [--matbin-dir=<matbin_directory>]");
 }
 
 void serializeMatbin(cv::Mat& mat, std::string filename)
@@ -105,6 +105,8 @@ int main(int argc, char** argv)
 	std::string extrinsic_filename = "";
 	std::string disparity_filename = "disparity.png";
 	std::string depth_filename = "depth.matbin";
+	bool show_time = false;
+	std::string matbin_dir="./";
 
 	enum { STEREO_SGBM, STEREO_3WAY };
 
@@ -112,7 +114,7 @@ int main(int argc, char** argv)
 	int SADWindowSize, numberOfDisparities;
 	int PreFilterCap, MininumDisparity, P1, P2, UniqeRatio, SpeckleRange, SpeckleWinSize, Disp12MaxDiff;
 
-	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}");
+	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}");
 
 	if (parser.has("help"))
 	{
@@ -154,6 +156,8 @@ int main(int argc, char** argv)
 	SpeckleRange = parser.get<int>("speckle-range");
 	SpeckleWinSize = parser.get<int>("speckle-win-size");
 	Disp12MaxDiff = parser.get<int>("disp-12max-diff");
+	show_time = (parser.get<std::string>("timing") == "yes") ? true : false;
+	matbin_dir = parser.get<std::string>("matbin-dir");
 	
 	if (parser.has("i"))
 		intrinsic_filename = parser.get<std::string>("i");
@@ -266,8 +270,8 @@ int main(int argc, char** argv)
 	// for processing all images at once, i am here using static values. 
 	// if you want to process other stereo images, you have to match file names and index etc. 
 
-	struct timeval t1, t2, t3;
-	double t_process[5000];
+	struct timeval t1, t2, t3, t4;
+	double t_process;
 	int frame_count=0;
 	for(int i = 1; i < 5000; i++)
 	{
@@ -296,7 +300,7 @@ int main(int argc, char** argv)
 
 		int cn = img1.channels();
 
-		gettimeofday(&t1, NULL);
+		if (show_time) gettimeofday(&t1, NULL);
 
 		Ptr<StereoSGBM> sgbm_left = StereoSGBM::create(0, 16, 3);
 	
@@ -357,6 +361,13 @@ int main(int argc, char** argv)
 		Mat filtered_disp_vis;
 		getDisparityVis(filtered_disp, filtered_disp_vis, 10.0);
 	
+		if (show_time)
+		{
+			gettimeofday(&t2, NULL);
+			t_process = (t2.tv_sec - t1.tv_sec) * 1000.0;
+			t_process += (t2.tv_usec - t1.tv_usec) / 1000.0;
+			cout << "T_disparity_calculation: " << t_process  << "ms"   << endl;
+		}
 		Mat imgDisparity32F;
 		filtered_disp.convertTo(imgDisparity32F, CV_32F, 1. / 16);
 
@@ -388,10 +399,13 @@ int main(int argc, char** argv)
         	    }
         	}
 
-		gettimeofday(&t2, NULL);
-		t_process[frame_count] = (t2.tv_sec - t1.tv_sec) * 1000.0;
-		t_process[frame_count] += (t2.tv_usec - t1.tv_usec) / 1000.0;
-		cout << "T_process: " << t_process[frame_count]  << "ms"   << endl;
+		if (show_time)
+		{
+			gettimeofday(&t3, NULL);
+			t_process = (t3.tv_sec - t2.tv_sec) * 1000.0;
+			t_process += (t3.tv_usec - t2.tv_usec) / 1000.0;
+			cout << "T_depth_calculation: " << t_process  << "ms"   << endl;
+		}
 
 		if (img_mode == 0) {
 			serializeMatbin(depth_map, depth_filename);
@@ -399,9 +413,16 @@ int main(int argc, char** argv)
 		else
 		{
 			stringstream str1;
-			str1 << loc << "../result/depth_bin/depth_image" << i << ".matbin";
+			str1 << matbin_dir << "depth_image" << i << ".matbin";
 			depth_filename = str1.str();
 			serializeMatbin(depth_map, depth_filename);
+		}
+		if (show_time)
+		{
+			gettimeofday(&t4, NULL);
+			t_process = (t4.tv_sec - t3.tv_sec) * 1000.0;
+			t_process += (t4.tv_usec - t3.tv_usec) / 1000.0;
+			cout << "T_write_matbin: " << t_process  << "ms"   << endl << endl;
 		}
 
         	// << ****** just checking if depth map saved correctly and loaded as it is ****** >>
@@ -410,10 +431,10 @@ int main(int argc, char** argv)
         	// << ****** just checking if depth map saved correctly and loaded as it is ****** >>
 
         	//! [display & save depth color map for result verification] 
-        	Mat depth_color_map = buildColorMap(depth_map);
-        	stringstream strcolor;
-        	strcolor << loc << "../result/depth_color_map/depth_color_map" << i << ".png";
-        	imwrite(strcolor.str(), depth_color_map);
+        	//Mat depth_color_map = buildColorMap(depth_map);
+        	//stringstream strcolor;
+        	//strcolor << loc << "../result/depth_color_map/depth_color_map" << i << ".png";
+        	//imwrite(strcolor.str(), depth_color_map);
 		if (img_mode == 0) {
 			imwrite(disparity_filename, filtered_disp_vis);
 			break;
@@ -425,8 +446,6 @@ int main(int argc, char** argv)
 			imwrite(disparity_filename, filtered_disp_vis);			
 		}
 		
-		GlbDepthMap = depth_map.clone();
-		GlbDisparity= filtered_disp_vis.clone();
 		frame_count++;
 	}
 
