@@ -105,7 +105,11 @@ int main(int argc, char** argv)
 	std::string extrinsic_filename = "";
 	std::string disparity_filename = "disparity.png";
 	std::string depth_filename = "depth.matbin";
+	int start_index = 0;
+	int end_index = 5000;
 	bool show_time = false;
+	int sgbm_mode=0;
+	double scale_factor=1;
 	std::string matbin_dir="./";
 
 	enum { STEREO_SGBM, STEREO_3WAY };
@@ -114,7 +118,7 @@ int main(int argc, char** argv)
 	int SADWindowSize, numberOfDisparities;
 	int PreFilterCap, MininumDisparity, P1, P2, UniqeRatio, SpeckleRange, SpeckleWinSize, Disp12MaxDiff;
 
-	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}");
+	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}{sgbm-mode|0|}{scale-factor|1|}{start-inx|0|}{end-inx|5000|}");
 
 	if (parser.has("help"))
 	{
@@ -152,10 +156,14 @@ int main(int argc, char** argv)
 	MininumDisparity = parser.get<int>("min-disparity");
 	P1 = parser.get<int>("P1");
 	P2 = parser.get<int>("P2");
+	scale_factor = parser.get<double>("scale-factor");
+	sgbm_mode = parser.get<int>("sgbm-mode");
 	UniqeRatio = parser.get<int>("uniqe-ratio");
 	SpeckleRange = parser.get<int>("speckle-range");
 	SpeckleWinSize = parser.get<int>("speckle-win-size");
 	Disp12MaxDiff = parser.get<int>("disp-12max-diff");
+	start_index = parser.get<int>("start-inx");
+	end_index = parser.get<int>("end-inx");
 	show_time = (parser.get<std::string>("timing") == "yes") ? true : false;
 	matbin_dir = parser.get<std::string>("matbin-dir");
 	
@@ -273,13 +281,13 @@ int main(int argc, char** argv)
 	struct timeval t1, t2, t3, t4;
 	double t_process;
 	int frame_count=0;
-	for(int i = 1; i < 5000; i++)
+	for(int i = start_index; i <= end_index; i++)
 	{
 		if (img_mode == 1) 
 		{
 			stringstream strleft, strright;
-			strleft << loc << "left_image" << i << ".png";
-			strright << loc << "right_image" << i << ".png";
+			strleft << loc << "left_image_" << i << ".png";
+			strright << loc << "right_image_" << i << ".png";
 
 			img1_filename = strleft.str();
 			img2_filename = strright.str();
@@ -319,17 +327,18 @@ int main(int argc, char** argv)
 		sgbm_left->setDisp12MaxDiff(Disp12MaxDiff);
 
 		//scale down input to speed up process
-		//Mat LScaleImage, RScaleImage;
-		//resize(img1, LScaleImage, cv::Size(), 0.5, 0.5, cv::INTER_AREA);
-		//resize(img2, RScaleImage, cv::Size(), 0.5, 0.5, cv::INTER_AREA);
-		//
+		Mat LScaleImage, RScaleImage;
+		resize(img1, LScaleImage, cv::Size(), scale_factor, scale_factor, cv::INTER_AREA);
+		resize(img2, RScaleImage, cv::Size(), scale_factor, scale_factor, cv::INTER_AREA);
+		
 		//img1 = LScaleImage;
 		//img2 = RScaleImage;
 
-		if (alg == STEREO_SGBM)
-			sgbm_left->setMode(StereoSGBM::MODE_SGBM);
-		else if (alg == STEREO_3WAY)
-			sgbm_left->setMode(StereoSGBM::MODE_SGBM_3WAY);
+		//if (alg == STEREO_SGBM)
+		//	sgbm_left->setMode(StereoSGBM::MODE_SGBM);
+		//else if (alg == STEREO_3WAY)
+		//	sgbm_left->setMode(StereoSGBM::MODE_SGBM_3WAY);
+		sgbm_left->setMode(sgbm_mode);
 
 		Ptr<StereoMatcher> right_matcher = createRightMatcher(sgbm_left);
 
@@ -338,8 +347,8 @@ int main(int argc, char** argv)
 
 		//int64 t = getTickCount();
 
-		sgbm_left->compute(img1, img2, disp);
-		right_matcher->compute(img2, img1, right_disp);
+		sgbm_left->compute(LScaleImage, RScaleImage, disp);
+		right_matcher->compute(RScaleImage, LScaleImage, right_disp);
 
 		//t = getTickCount() - t;
 		//printf("SGMB processing time: %fms\n\n", t * 1000 / getTickFrequency());
@@ -354,7 +363,7 @@ int main(int argc, char** argv)
 
 		wls_filter->setLambda(lambda);
 		wls_filter->setSigmaColor(sigma);
-		wls_filter->filter(disp, img1, filtered_disp, right_disp);
+		wls_filter->filter(disp, LScaleImage, filtered_disp, right_disp);
 
 		//Deepak
 		//Visualize disparity map
@@ -413,7 +422,7 @@ int main(int argc, char** argv)
 		else
 		{
 			stringstream str1;
-			str1 << matbin_dir << "depth_image" << i << ".matbin";
+			str1 << matbin_dir << "depth_image_" << i << ".matbin";
 			depth_filename = str1.str();
 			serializeMatbin(depth_map, depth_filename);
 		}
@@ -437,11 +446,11 @@ int main(int argc, char** argv)
         	//imwrite(strcolor.str(), depth_color_map);
 		if (img_mode == 0) {
 			imwrite(disparity_filename, filtered_disp_vis);
-			break;
+			//break;
 		}
 		else {
 			stringstream str1;
-			str1 << loc << "../result/dispa_image/dispa" << i << ".png";
+			str1 << loc << "../result/dispa_image/disparity_image_" << i << ".png";
 			disparity_filename = str1.str();
 			imwrite(disparity_filename, filtered_disp_vis);			
 		}
