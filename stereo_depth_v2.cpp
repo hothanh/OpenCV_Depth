@@ -389,10 +389,6 @@ int main(int argc, char** argv)
 
         	float min_ = 1.0e8;
         	float max_ = -1.0e8;
-		gettimeofday(&t3, NULL);
-		t_process[frame_count] = (t3.tv_sec - t2.tv_sec) * 1000.0;
-		t_process[frame_count] += (t3.tv_usec - t2.tv_usec) / 1000.0;
-		cout << "T_transform: " << t_process[frame_count]  << "ms"   << endl;
 
         	// calculate depth from each disparity value 
         	for (int y = 0; y < imgDisparity32F.rows; y++)
