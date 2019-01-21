@@ -310,13 +310,11 @@ int main(int argc, char** argv)
 
 		if (show_time) gettimeofday(&t1, NULL);
 
-		Ptr<StereoSGBM> sgbm_left = StereoSGBM::create(0, 16, 3);
+		Ptr<StereoSGBM> sgbm_left = cv::StereoSGBM::create(0, 160, 13, 4056, 16224, 1, 0, 15, 400, 200, 1);
 	
 		sgbm_left->setPreFilterCap(PreFilterCap);
 		int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
 		sgbm_left->setBlockSize(sgbmWinSize);
-		//sgbm_left->setP1(8 * cn*sgbmWinSize*sgbmWinSize);
-		//sgbm_left->setP2(32 * cn*sgbmWinSize*sgbmWinSize);
 		sgbm_left->setP1(P1);
 		sgbm_left->setP2(P2);
 		sgbm_left->setMinDisparity(MininumDisparity);
@@ -378,7 +376,7 @@ int main(int argc, char** argv)
 			cout << "T_disparity_calculation: " << t_process  << "ms"   << endl;
 		}
 		Mat imgDisparity32F;
-		filtered_disp.convertTo(imgDisparity32F, CV_32F, 1. / 16);
+		disp.convertTo(imgDisparity32F, CV_32F, 1. / 16);
 
         	cv::Mat depth_map(imgDisparity32F.rows, imgDisparity32F.cols, CV_32F);
         	depth_map.setTo(0);
@@ -391,9 +389,12 @@ int main(int argc, char** argv)
 
         	float min_ = 1.0e8;
         	float max_ = -1.0e8;
+		gettimeofday(&t3, NULL);
+		t_process[frame_count] = (t3.tv_sec - t2.tv_sec) * 1000.0;
+		t_process[frame_count] += (t3.tv_usec - t2.tv_usec) / 1000.0;
+		cout << "T_transform: " << t_process[frame_count]  << "ms"   << endl;
 
         	// calculate depth from each disparity value 
-		//t = getTickCount();
         	for (int y = 0; y < imgDisparity32F.rows; y++)
         	{
         	    for (int x = 0; x < imgDisparity32F.cols; x++)
@@ -452,7 +453,7 @@ int main(int argc, char** argv)
 			stringstream str1;
 			str1 << loc << "../result/dispa_image/disparity_image_" << i << ".png";
 			disparity_filename = str1.str();
-			imwrite(disparity_filename, filtered_disp_vis);			
+			imwrite(disparity_filename, disp);			
 		}
 		
 		frame_count++;
