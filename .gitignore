@@ -1,0 +1,13 @@
+# img folder
+images/
+img/
+# result folder
+result/
+# executable & output binary file
+stereo_depth
+*.o
+*.s
+# vim swp file
+*.swp
+# matbin
+*.matbin

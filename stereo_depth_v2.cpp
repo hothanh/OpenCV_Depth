@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 	std::string disparity_filename = "disparity.png";
 	std::string depth_filename = "depth.matbin";
 	int start_index = 0;
-	int end_index = 5000;
+	int end_index = 52000;
 	bool show_time = false;
 	int sgbm_mode=0;
 	double scale_factor=1;
@@ -118,7 +118,7 @@ int main(int argc, char** argv)
 	int SADWindowSize, numberOfDisparities;
 	int PreFilterCap, MininumDisparity, P1, P2, UniqeRatio, SpeckleRange, SpeckleWinSize, Disp12MaxDiff;
 
-	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}{sgbm-mode|0|}{scale-factor|1|}{start-inx|0|}{end-inx|5000|}");
+	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}{sgbm-mode|0|}{scale-factor|1|}{start-inx|0|}{end-inx|52000|}");
 
 	if (parser.has("help"))
 	{
@@ -424,7 +424,7 @@ int main(int argc, char** argv)
 			stringstream str1;
 			str1 << matbin_dir << "depth_image_" << i << ".matbin";
 			depth_filename = str1.str();
-			serializeMatbin(depth_map, depth_filename);
+			serializeMatbin(depth_map, depth_filename);	
 		}
 		if (show_time)
 		{
