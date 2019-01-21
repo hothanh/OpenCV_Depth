@@ -110,6 +110,8 @@ int main(int argc, char** argv)
 	bool show_time = false;
 	int sgbm_mode=0;
 	double scale_factor=1;
+	double lambda=8000.0;
+	double sigma = 1.5;
 	std::string matbin_dir="./";
 
 	enum { STEREO_SGBM, STEREO_3WAY };
@@ -118,7 +120,7 @@ int main(int argc, char** argv)
 	int SADWindowSize, numberOfDisparities;
 	int PreFilterCap, MininumDisparity, P1, P2, UniqeRatio, SpeckleRange, SpeckleWinSize, Disp12MaxDiff;
 
-	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}{sgbm-mode|0|}{scale-factor|1|}{start-inx|0|}{end-inx|52000|}");
+	cv::CommandLineParser parser(argc, argv, "{imagemode||}{left||}{right||}{help h||}{algorithm||}{max-disparity|0|}{sad-win-size|0|}{scale|1|}{i||}{e||}{o||}{od||}{loc||}{pre-filter-cap|61|}{min-disparity|0|}{P1|1100|}{P2|1100|}{uniqe-ratio|10|}{speckle-range|32|}{speckle-win-size|100|}{disp-12max-diff|1|}{timing||}{matbin-dir||}{sgbm-mode|0|}{scale-factor|1|}{start-inx|0|}{end-inx|52000|}{lambda|8000|}{sigma|1.5|}");
 
 	if (parser.has("help"))
 	{
@@ -157,6 +159,8 @@ int main(int argc, char** argv)
 	P1 = parser.get<int>("P1");
 	P2 = parser.get<int>("P2");
 	scale_factor = parser.get<double>("scale-factor");
+	lambda = parser.get<double>("lambda");
+	sigma = parser.get<double>("sigma");
 	sgbm_mode = parser.get<int>("sgbm-mode");
 	UniqeRatio = parser.get<int>("uniqe-ratio");
 	SpeckleRange = parser.get<int>("speckle-range");
@@ -356,8 +360,6 @@ int main(int argc, char** argv)
 		wls_filter = createDisparityWLSFilter(sgbm_left);
 	
 		//! [filtering]
-		double lambda = 8000.0;
-		double sigma = 1.5;
 
 		wls_filter->setLambda(lambda);
 		wls_filter->setSigmaColor(sigma);
